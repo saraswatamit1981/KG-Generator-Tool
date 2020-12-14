@@ -10,8 +10,8 @@ import pandas as pd
 import uuid
 from indentAPI import Indent
 api=Indent()
-
-
+from log.Logger import Logger
+oa=Logger()
 
 def getAltTagsCsv(q, terms, tags): 
 	#tokenizing the question, so that we can extract the necessary parts of speech
@@ -50,8 +50,9 @@ def tagAdder_csv(verbs, adj):
 def deleteQ_csv(question, input_file, output_csv): 
 	#built on the assumption that to completely delete traces of the question, delete all rows with its question ID
 	#finding the question and collecting its ID 
-	que_ID = ""
-	with open(input_file, mode='r') as readfile:
+	que_ID = None
+	oa.debug("delete question CSV started")
+	with open(input_file, mode='r',encoding='utf-8') as readfile:
 		csvFile = csv.reader(readfile)
 		#need to skip lines that include 'Que ID' --> a marker for the titles row 
 		for line in csvFile: 
@@ -61,21 +62,26 @@ def deleteQ_csv(question, input_file, output_csv):
 				que_ID = line[1]
 				break 
 
-	#getting all the CSV contents
-	data = None
-	with open(input_file, newline='') as f: 
-		reader = csv.reader(f)
-		data=list(reader)
-	
-	#including only rows that don't include the question ID 
-	#later replace dummy test.csv w file and see what happens
-	with open(output_csv, mode='w') as writefile: 
-		csvWriter = csv.writer(writefile)
-		for line in data: 
-			if que_ID not in line: 
-				csvWriter.writerow(line)
-
-
+	if que_ID is not None:
+		
+		oa.debug("Deleting question found")
+		#getting all the CSV contents
+		data = None
+		with open(input_file, newline='',encoding='utf-8') as f: 
+			reader = csv.reader(f)
+			data=list(reader)
+		
+		#including only rows that don't include the question ID 
+		#later replace dummy test.csv w file and see what happens
+		oa.debug("writing the new file")
+		with open(output_csv, mode='w',encoding='utf-8',newline='') as writefile: 
+			csvWriter = csv.writer(writefile)
+			for line in data: 
+				if que_ID not in line: 
+					csvWriter.writerow(line)
+	else:
+		print("question not found")
+		oa.debug("question not found")
 
 
 
@@ -83,12 +89,12 @@ def deleteQ_csv(question, input_file, output_csv):
 
 #CSV VERSION
 def editQ_csv(question, replacement,input_file, output_csv): 
-	que_ID = ""
+	que_ID = None
 	primaryTerm = ""
 	ans = ""
-	
+	oa.debug("searching the question")
 	#get the primary term and answer, then delete the question
-	with open(input_file, mode='r') as readfile: 
+	with open(input_file, mode='r',encoding='utf-8') as readfile: 
 		csvFile = csv.reader(readfile)
 		#need to skip lines that include 'Que ID' --> a marker for the titles row 
 		for line in csvFile: 
@@ -100,12 +106,31 @@ def editQ_csv(question, replacement,input_file, output_csv):
 				primaryTerm = terms[0]
 				break 
 
+	if que_ID is not None:
 	#remove the questions
-	deleteQ_csv(question, input_file,output_csv)
-
+		deleteQ_csv(question, input_file,output_csv)
 	#add in the new question with its replacement
-	questionadder_csv((replacement, ans),primaryTerm,input_file,output_csv)
+		oa.debug("adding edited question")
+		questionadder_csv((replacement, ans),primaryTerm,output_csv)
+		
+	else:
+		print("no question found")
+		
+
+def read_input_csv(input_file):
+	#getting csv data
+	data = list()
+	with open(input_file, newline='',encoding='utf-8') as f: 
+		reader = csv.reader(f)
+		for row in reader:
+			data.append(row)
 	
+	
+
+def write_input_csv(output_csv):
+	with open(output_csv, mode='w',encoding='utf-8') as writefile: 
+		csvWriter = csv.writer(writefile)
+		csvWriter.writerows(op_data)
 
 #CSV VERSION
 
@@ -113,13 +138,13 @@ def editQ_csv(question, replacement,input_file, output_csv):
 NOTES FOR CSV VERSION: 
 - if a dialog type question is added instead of a typical q/a pair part of an FAQ, then the second element of the qaPair should be the intent ID
 """
-def questionadder_csv(qaPair, primaryTerm,input_file ,output_csv,alternates = False, alt_list=None):
-
-	#getting csv data
+def questionadder_csv(qaPair,primaryTerm,output_csv,alternates = False, alt_list=None):
+	oa.debug("adding question the started")
 	data = None
-	with open(input_file, newline='') as f: 
+	with open(output_csv, newline='',encoding='utf-8') as f: 
 		reader = csv.reader(f)
 		data=list(reader)
+	
 	
 	primaryQuestion=api.callintentAPI(qaPair[0])
 
@@ -140,7 +165,7 @@ def questionadder_csv(qaPair, primaryTerm,input_file ,output_csv,alternates = Fa
 				break
 		
 	else:
-		
+		oa.debug("creating tag and terms")
 		#temp becomes an array of tuples, where the second element is the part of speech as tagged by nltk
 		temp = nltk.word_tokenize(qaPair[0].lower())
 		temp = nltk.pos_tag(temp)
@@ -168,15 +193,12 @@ def questionadder_csv(qaPair, primaryTerm,input_file ,output_csv,alternates = Fa
 	header3 = ["Synonyms", "Phrase", "Synonyms"]
 
 
-	
-
-
 	header1_sec = ['', q_ID, path, qaPair[0], '', tags, qaPair[1], '', ''] 
 	header2_sec_path = ['', '', path, 'N', '', '', '', "false"]
-
-	#need to do the header 1 sec for each of the alternates
+	
 	alt_header_1 = []
 	if alternates: 
+		oa.debug("alternates found ")
 		for q in alt_list: 
 			#get the tags for that question
 			tags = getAltTagsCsv(q, path, tags_list)
@@ -185,8 +207,8 @@ def questionadder_csv(qaPair, primaryTerm,input_file ,output_csv,alternates = Fa
 
 	if alternates: 
 		#add all the alternates after the primary question 
-		with open(output_csv, mode='w') as writefile: 
-			csvWriter = csv.writer(writefile)
+		with open(output_csv, mode='w',encoding='utf-8') as writefile: 
+			csvWriter = csv.writer(writefile,quoting=csv.QUOTE_NONNUMERIC)
 			for line in data: 
 				if line != []: 
 					if line == header1:
@@ -205,36 +227,30 @@ def questionadder_csv(qaPair, primaryTerm,input_file ,output_csv,alternates = Fa
 					else: 
 						csvWriter.writerow(line)
 	else: 
-		with open(output_csv, mode='w') as writefile: 
-			csvWriter = csv.writer(writefile)
-			for line in data: 
-				if line != []: 
-					if line == header1:
-						csvWriter.writerow(line)
-						csvWriter.writerow(header1_sec)
-					elif line == header2: 
-						csvWriter.writerow(line)
-						if header2_sec_path not in data:
-							csvWriter.writerow(header2_sec_path)
-					elif line == header3: 
-						for tag in tags_list:
-							header2_sec_tag = ['', q_ID, tag, "Y", '', '', '', '']
-							csvWriter.writerow(header2_sec_tag)
-					else: 
-						csvWriter.writerow(line)
+		oa.debug("appending the question at the location ")
+		for line in data: 
+			if line != []: 
+				if line == header1:
+					if header1_sec not in data:
+						data.insert(data.index(line)+1,header1_sec)
+				elif line == header2: 			
+					if header2_sec_path not in data:
+						data.insert(data.index(line)+1,header2_sec_path)				
+				elif line == header3: 
+					for tag in tags_list:
+						header2_sec_tag = ['', q_ID, tag, "Y", '', '', '', '']
+						if header2_sec_tag not in data:
+							data.insert(data.index(line)+1,header2_sec_tag)
+			
+	
+	if not alternates:
+		oa.debug("writing the new output file ")
+		with open(output_csv, mode='w',encoding='utf-8',newline='') as writefile: 
+			csvWriter = csv.writer(writefile,quoting=csv.QUOTE_NONNUMERIC)
+			csvWriter.writerows(data)
+		
 
 
-
-
-
-# if __name__=="__main__":
-
-# 	print("testing")
-#    	#questionadder_json()
-#    	#makeLists()   
-   	
-#    	#editQ_csv()
-# 	#editQ_csv('Where is bubble tea from?','how did bubble tea came into existance','tea_bot -  Knowledge Collection.csv','newcsv.csv')
 
 	
 

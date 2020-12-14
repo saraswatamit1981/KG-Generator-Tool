@@ -228,24 +228,30 @@ def questionadder(qaPair, data):
 		# tagAdder(new_qa["tags"], q_verbs, q_adj)
 		# data["faqs"].append(new_qa)
 		# oa.info("Question added under root")
+		print(data["nodes"][0]["terms"][0])
 		AddQuesUnderRoot(data,qaPair,primaryTerm=data["nodes"][0]["terms"][0])
 
 
 def add_new_faq_csv(args):
 
+	copyfile(args['input_file_path'],args['output_file_path'])
 	primary_term=extract_primary_term(args['input_file_path'])
 
 	if '.json' in args['newFaqFile']:
 		ques_ans_pair=read_json_file(args['newFaqFile'])
+		data=read_file_csv(args['input_file_path'])
 		for QandA in ques_ans_pair['faq']:
 			qapair=(QandA["question"],QandA["answer"])
-			csv_util.questionadder_csv(qapair,primary_term,args['input_file_path'],args['output_file_path'])
+			csv_util.questionadder_csv(qapair,primary_term,args['output_file_path'])
+		
 
 	elif '.csv' in args['newFaqFile']:
 		ques_ans_pair=read_file_csv(args['newFaqFile'])
+		
 		for QandA in ques_ans_pair[1:]:
 			qapair=(QandA[0].strip(),QandA[1].strip())
-			csv_util.questionadder_csv(qapair,primary_term,args['input_file_path'],args['output_file_path'])
+			csv_util.questionadder_csv(qapair,primary_term,args['output_file_path'])
+		
 	else:
 		oa.debug('please check the args newFaqFile  name should be a JSON or CSV')
 		print("please check the args newFaqFile name should be a JSON or CSV ")
@@ -314,7 +320,7 @@ def read_json_file(file_path):
 	ogFile=file_path
 	data=None
 	try:
-		with open(ogFile, 'r') as infile: 
+		with open(ogFile, 'r',encoding='utf-8') as infile: 
 		#extracting all the data as is from our graph A 
 			data = json.load(infile)
 	except Exception:
@@ -559,7 +565,6 @@ if __name__=="__main__":
 			if question=='' or replacement=='':
 				print("Check the entered quesiton")
 			else:
-				#editQ_json(args,question.strip(),replacement.strip())
 				csv_util.editQ_csv(question,replacement,args['input_file_path'],args['output_file_path'])
 				oa.info("Question: "+question+" edited successfuly")
 
@@ -568,12 +573,9 @@ if __name__=="__main__":
 			if question=='':
 				print("Check the entered quesiton")
 			csv_util.deleteQ_csv(question,args['input_file_path'],args['output_file_path'])
-			#deleteQ_json(args,question.strip())
+
 		
 		if args['operation']=='add':
-			#data=None
-			#data=read_json_file(args['input_file_path'])
-			#add_new_faq_json(data,args)
 			add_new_faq_csv(args)
 
 
